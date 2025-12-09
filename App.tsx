@@ -11,20 +11,20 @@ import ErrorBoundary from './components/ErrorBoundary';
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
-      <StoreProvider>
-        <HashRouter>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/create" element={<Editor />} />
-              <Route path="/edit/:id" element={<Editor />} />
-              <Route path="/study/:id" element={<Study />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Layout>
-        </HashRouter>
-      </StoreProvider>
+    <StoreProvider>
+      <HashRouter>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/create" element={<Editor />} />
+            <Route path="/edit/:id" element={<Editor />} />
+            <Route path="/study/:id" element={<Study />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </HashRouter>
+    </StoreProvider>
     </ErrorBoundary>
   );
 };

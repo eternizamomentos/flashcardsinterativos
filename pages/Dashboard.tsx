@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Importa baralho via input
+  // Importa baralho(s) via input - aceita objeto único ou array
   const handleImport = async (evt: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
     setImportSuccess(null);
@@ -45,31 +45,111 @@ const Dashboard: React.FC = () => {
       if (!file) return;
       const text = await file.text();
       const data = JSON.parse(text);
-      // Validação simples do formato
-      if (!data.title || !Array.isArray(data.cards)) {
-        setImportError('Arquivo inválido ou corrompido. Formato inesperado.');
-        logError('Formato inválido na importação', data);
+      
+      // Detecta se é array ou objeto único
+      const isArray = Array.isArray(data);
+      const setsToImport = isArray ? data : [data];
+      
+      if (setsToImport.length === 0) {
+        setImportError('Arquivo vazio ou sem baralhos válidos.');
+        logError('Arquivo vazio na importação', data);
         return;
       }
-      // Se id já existe, cria uma cópia com novo id
-      let newId = uuidv4();
-      let newTitle = data.title;
-      if (sets.some(s => s.id === data.id)) {
-        newTitle = `${data.title} (importado)`;
+
+      let importedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      // Processa cada baralho
+      setsToImport.forEach((setData: any, index: number) => {
+        try {
+          // Validação do formato
+          if (!setData || typeof setData !== 'object') {
+            errors.push(`Item ${index + 1}: não é um objeto válido`);
+            skippedCount++;
+            return;
+          }
+
+          if (!setData.title || typeof setData.title !== 'string') {
+            errors.push(`Item ${index + 1}: título inválido ou ausente`);
+            skippedCount++;
+            return;
+          }
+
+          if (!Array.isArray(setData.cards)) {
+            errors.push(`Item ${index + 1}: campo "cards" deve ser um array`);
+            skippedCount++;
+            return;
+          }
+
+          // Valida cards
+          const validCards = setData.cards.filter((card: any) => 
+            card && 
+            typeof card.front === 'string' && 
+            typeof card.back === 'string' &&
+            card.front.trim() !== '' &&
+            card.back.trim() !== ''
+          );
+
+          if (validCards.length === 0 && setData.cards.length > 0) {
+            errors.push(`Item ${index + 1}: nenhum card válido encontrado`);
+            skippedCount++;
+            return;
+          }
+
+          // Gera novo ID se já existir
+          let newId = uuidv4();
+          let newTitle = setData.title;
+          if (sets.some(s => s.id === setData.id)) {
+            newId = uuidv4();
+            newTitle = `${setData.title} (importado)`;
+          }
+
+          // Cria o baralho importado
+          const importedSet: FlashcardSet = {
+            id: newId,
+            title: newTitle,
+            category: setData.category || 'Geral',
+            cards: validCards.map((card: any) => ({
+              id: card.id || uuidv4(),
+              front: card.front.trim(),
+              back: card.back.trim(),
+              status: card.status || 'new',
+              nextReview: card.nextReview || Date.now(),
+              interval: card.interval || 0,
+              easeFactor: card.easeFactor || 2.5,
+            })),
+            createdAt: setData.createdAt || Date.now(),
+            lastStudied: setData.lastStudied || null,
+          };
+
+          createSet(importedSet);
+          importedCount++;
+          logError('Baralho importado:', importedSet);
+        } catch (err) {
+          errors.push(`Item ${index + 1}: erro ao processar - ${err}`);
+          skippedCount++;
+          logError(`Erro ao importar item ${index + 1}:`, err, setData);
+        }
+      });
+
+      // Mensagem de resultado
+      if (importedCount > 0) {
+        const successMsg = isArray 
+          ? `${importedCount} baralho(s) importado(s) com sucesso!${skippedCount > 0 ? ` (${skippedCount} ignorado(s))` : ''}`
+          : `Baralho "${setsToImport[0].title}" importado com sucesso!`;
+        setImportSuccess(successMsg);
+      } else {
+        setImportError(`Nenhum baralho foi importado.${errors.length > 0 ? ' Verifique o console para detalhes.' : ''}`);
       }
-      const importedSet = {
-        ...data,
-        id: newId,
-        title: newTitle,
-        createdAt: Date.now(),
-        lastStudied: null,
-      };
-      createSet(importedSet);
-      setImportSuccess(`Baralho importado com sucesso como "${importedSet.title}"!`);
-      logError('Baralho importado:', importedSet);
+
+      if (errors.length > 0) {
+        logError('Erros durante importação em lote:', errors);
+      }
+
       evt.target.value = '';
     } catch (err) {
-      setImportError('Falha ao importar baralho. Verifique o arquivo JSON.');
+      setImportError('Falha ao importar baralho(s). Verifique se o arquivo JSON está válido.');
       logError('Erro ao importar baralho', err);
     }
   };

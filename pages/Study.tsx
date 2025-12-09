@@ -68,7 +68,7 @@ const Study: React.FC = () => {
         return;
       }
       // Filtragem e validação dos cards
-      const now = Date.now();
+        const now = Date.now();
       let invalids = 0;
       const due = set.cards.filter((c, idx) => {
         const valido = c && typeof c.front === 'string' && typeof c.back === 'string' && c.front.trim() !== '' && c.back.trim() !== '' && typeof c.id === 'string';
@@ -80,13 +80,13 @@ const Study: React.FC = () => {
       }).sort((a, b) => a.nextReview - b.nextReview);
       setInvalidCount(invalids);
       if (invalids > 0) logError({ contexto: 'Resumo da filtragem', totalCards: set.cards.length, removidos: invalids });
-
-      if (due.length > 0) {
-        setSessionCards(due);
+        
+        if (due.length > 0) {
+          setSessionCards(due);
         setError(null);
         logError({ contexto: 'Sessão inicializada', totalCards: set.cards.length, cardsVálidos: due.length, removidos: invalids });
-      } else {
-        setIsFinished(true);
+        } else {
+           setIsFinished(true);
         setError(null);
         logError({ contexto: 'Nenhum card disponível após filtragem', totalCards: set.cards.length, removidos: invalids });
       }
@@ -120,8 +120,8 @@ const Study: React.FC = () => {
     // Update global store
     const fullSet = getSet(id);
     if (fullSet) {
-      const updatedCards = fullSet.cards.map(c =>
-        c.id === currentCard.id
+      const updatedCards = fullSet.cards.map(c => 
+        c.id === currentCard.id 
           ? { ...c, nextReview: nextReviewDate, interval: newInterval, easeFactor: newEase, status: newStatus }
           : c
       );
