@@ -36,7 +36,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Importa baralho(s) via input - aceita objeto único ou array
+  // Importa baralho(s) via input - aceita objeto único, array, ou formato exportado com metadados
   const handleImport = async (evt: React.ChangeEvent<HTMLInputElement>) => {
     setImportError(null);
     setImportSuccess(null);
@@ -46,9 +46,36 @@ const Dashboard: React.FC = () => {
       const text = await file.text();
       const data = JSON.parse(text);
       
-      // Detecta se é array ou objeto único
-      const isArray = Array.isArray(data);
-      const setsToImport = isArray ? data : [data];
+      logError('Arquivo importado - estrutura detectada:', {
+        isArray: Array.isArray(data),
+        hasSets: data.sets && Array.isArray(data.sets),
+        keys: Object.keys(data),
+        sample: data
+      });
+      
+      // Detecta formato exportado pelo script (com metadados: version, exportedAt, sets)
+      let setsToImport: any[] = [];
+      let isArray = false;
+      
+      if (Array.isArray(data)) {
+        // Formato: array direto de baralhos
+        setsToImport = data;
+        isArray = true;
+      } else if (data.sets && Array.isArray(data.sets)) {
+        // Formato: objeto com metadados { version, exportedAt, totalSets, sets: [...] }
+        setsToImport = data.sets;
+        isArray = true;
+        logError('Formato detectado: exportação com metadados', { totalSets: data.totalSets, version: data.version });
+      } else if (data.title && Array.isArray(data.cards)) {
+        // Formato: objeto único de baralho
+        setsToImport = [data];
+        isArray = false;
+      } else {
+        setImportError('Formato de arquivo não reconhecido. O arquivo deve conter um baralho ou array de baralhos.');
+        logError('Formato inválido na importação', data);
+        evt.target.value = '';
+        return;
+      }
       
       if (setsToImport.length === 0) {
         setImportError('Arquivo vazio ou sem baralhos válidos.');
@@ -137,15 +164,25 @@ const Dashboard: React.FC = () => {
       if (importedCount > 0) {
         const successMsg = isArray 
           ? `${importedCount} baralho(s) importado(s) com sucesso!${skippedCount > 0 ? ` (${skippedCount} ignorado(s))` : ''}`
-          : `Baralho "${setsToImport[0].title}" importado com sucesso!`;
+          : `Baralho "${setsToImport[0]?.title || 'desconhecido'}" importado com sucesso!`;
         setImportSuccess(successMsg);
       } else {
-        setImportError(`Nenhum baralho foi importado.${errors.length > 0 ? ' Verifique o console para detalhes.' : ''}`);
+        const errorDetails = errors.length > 0 
+          ? `\n\nErros encontrados:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n... e mais ${errors.length - 5} erro(s)` : ''}`
+          : '\n\nVerifique se o arquivo contém baralhos válidos com título e cards.';
+        setImportError(`Nenhum baralho foi importado.${errorDetails}`);
       }
 
       if (errors.length > 0) {
-        logError('Erros durante importação em lote:', errors);
+        logError('Erros durante importação em lote:', { totalErrors: errors.length, errors });
       }
+      
+      logError('Resumo da importação:', { 
+        totalProcessados: setsToImport.length, 
+        importados: importedCount, 
+        ignorados: skippedCount,
+        erros: errors.length 
+      });
 
       evt.target.value = '';
     } catch (err) {
@@ -198,7 +235,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
       {(importError || importSuccess) && (
-        <div className={`my-2 px-3 py-2 rounded font-semibold ${importError ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+        <div className={`my-2 px-4 py-3 rounded-lg font-medium whitespace-pre-line ${importError ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-green-100 text-green-800 border border-green-300'}`}>
           {importError || importSuccess}
         </div>
       )}
